@@ -24,6 +24,8 @@ var issueCmd = &cobra.Command{
 Examples:
   linctl issue list --assignee me --state "In Progress"
   linctl issue ls -a me -s "In Progress"
+  linctl issue list --cycle current  # Show issues in current active cycle
+  linctl issue list --cycle 42  # Show issues in cycle 42
   linctl issue list --include-completed  # Show all issues including completed
   linctl issue list --newer-than 3_weeks_ago  # Show issues from last 3 weeks
   linctl issue search "login bug" --team ENG
@@ -35,7 +37,14 @@ var issueListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
 	Short:   "List issues",
-	Long:    `List Linear issues with optional filtering.`,
+	Long: `List Linear issues with optional filtering.
+
+Examples:
+  linctl issue list --assignee me
+  linctl issue list --state "In Progress" --team ENG
+  linctl issue list --cycle current  # Filter by current active cycle
+  linctl issue list --cycle 42  # Filter by specific cycle number
+  linctl issue list --priority 1 --cycle current  # Urgent issues in current cycle`,
 	Run: func(cmd *cobra.Command, args []string) {
 		plaintext := viper.GetBool("plaintext")
 		jsonOut := viper.GetBool("json")
@@ -217,6 +226,8 @@ var issueSearchCmd = &cobra.Command{
 Examples:
   linctl issue search "payment outage"
   linctl issue search "auth token" --team ENG --include-completed
+  linctl issue search "login" --cycle current  # Search in current cycle
+  linctl issue search "bug" --cycle 42  # Search in specific cycle
   linctl issue search "customer:" --json`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
