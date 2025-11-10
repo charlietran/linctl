@@ -48,18 +48,19 @@ This is a fork of [dorkitude/linctl](https://github.com/dorkitude/linctl) with a
 
 ## 🛠️ Installation
 
-### Homebrew (macOS/Linux)
+### Using go install
 
 ```bash
-brew tap dorkitude/linctl
-brew install linctl
-linctl docs      # Render the README.md
+# Install directly from this repo. Golang install required (brew install go)
+go install github.com/charlietran/linctl@latest
+$(go env GOPATH)/bin/linctl
+# You can just run "linctl" if something like "export PATH=$PATH:$(go env GOPATH)/bin" is in your shell config
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/dorkitude/linctl.git
+git clone https://github.com/charlietran/linctl.git
 cd linctl
 make deps        # Install dependencies
 make build       # Build the binary
@@ -70,7 +71,7 @@ linctl docs      # Render the README.md
 ### For Development
 
 ```bash
-git clone https://github.com/dorkitude/linctl.git
+git clone https://github.com/charlietran/linctl.git
 cd linctl
 make deps        # Install dependencies
 go run main.go   # Run directly without building
@@ -785,7 +786,7 @@ Linear has the following rate limits:
 4. Add tests
 5. Submit a pull request
 
-See CONTRIBUTING.md for a detailed release checklist and the Homebrew tap auto-bump workflow.
+See CONTRIBUTING.md for a detailed release checklist.
 
 ## 📄 License
 
@@ -794,8 +795,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🔗 Links
 
 - [Linear API Documentation](https://developers.linear.app/)
-- [GitHub Repository](https://github.com/dorkitude/linctl)
-- [Issue Tracker](https://github.com/dorkitude/linctl/issues)
+- [GitHub Repository](https://github.com/charlietran/linctl)
+- [Issue Tracker](https://github.com/charlietran/linctl/issues)
 
 ---
 
