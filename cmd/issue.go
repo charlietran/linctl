@@ -111,6 +111,9 @@ func renderIssueCollection(issues *api.Issues, plaintext, jsonOut bool, emptyMes
 			if issue.Team != nil {
 				fmt.Printf("- **Team**: %s\n", issue.Team.Key)
 			}
+			if issue.Cycle != nil {
+				fmt.Printf("- **Cycle**: %s\n", issue.Cycle.Name)
+			}
 			fmt.Printf("- **Created**: %s\n", issue.CreatedAt.Format("2006-01-02"))
 			fmt.Printf("- **URL**: %s\n", issue.URL)
 			if issue.Description != "" {
@@ -122,7 +125,7 @@ func renderIssueCollection(issues *api.Issues, plaintext, jsonOut bool, emptyMes
 		return
 	}
 
-	headers := []string{"Title", "State", "Assignee", "Team", "Created", "URL"}
+	headers := []string{"Title", "State", "Assignee", "Team", "Cycle", "Created", "URL"}
 	rows := make([][]string, len(issues.Nodes))
 
 	for i, issue := range issues.Nodes {
@@ -134,6 +137,11 @@ func renderIssueCollection(issues *api.Issues, plaintext, jsonOut bool, emptyMes
 		team := ""
 		if issue.Team != nil {
 			team = issue.Team.Key
+		}
+
+		cycle := "-"
+		if issue.Cycle != nil {
+			cycle = issue.Cycle.Name
 		}
 
 		state := ""
@@ -168,6 +176,7 @@ func renderIssueCollection(issues *api.Issues, plaintext, jsonOut bool, emptyMes
 			state,
 			assignee,
 			team,
+			cycle,
 			issue.CreatedAt.Format("2006-01-02"),
 			issue.URL,
 		}
@@ -738,6 +747,17 @@ func buildIssueFilter(cmd *cobra.Command) map[string]interface{} {
 		filter["priority"] = map[string]interface{}{"eq": priority}
 	}
 
+	// Handle cycle filter
+	if cycle, _ := cmd.Flags().GetString("cycle"); cycle != "" {
+		if cycle == "current" {
+			// Filter for issues in the current active cycle
+			filter["cycle"] = map[string]interface{}{"isActive": map[string]interface{}{"eq": true}}
+		} else {
+			// Filter by specific cycle number
+			filter["cycle"] = map[string]interface{}{"number": map[string]interface{}{"eq": cycle}}
+		}
+	}
+
 	// Handle newer-than filter
 	newerThan, _ := cmd.Flags().GetString("newer-than")
 	createdAt, err := utils.ParseTimeExpression(newerThan)
@@ -1112,6 +1132,7 @@ func init() {
 	issueListCmd.Flags().StringP("state", "s", "", "Filter by state name")
 	issueListCmd.Flags().StringP("team", "t", "", "Filter by team key")
 	issueListCmd.Flags().IntP("priority", "r", -1, "Filter by priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)")
+	issueListCmd.Flags().StringP("cycle", "y", "", "Filter by cycle ('current' or cycle number)")
 	issueListCmd.Flags().IntP("limit", "l", 50, "Maximum number of issues to fetch")
 	issueListCmd.Flags().BoolP("include-completed", "c", false, "Include completed and canceled issues")
 	issueListCmd.Flags().StringP("sort", "o", "linear", "Sort order: linear (default), created, updated")
@@ -1122,6 +1143,7 @@ func init() {
 	issueSearchCmd.Flags().StringP("state", "s", "", "Filter by state name")
 	issueSearchCmd.Flags().StringP("team", "t", "", "Filter by team key")
 	issueSearchCmd.Flags().IntP("priority", "r", -1, "Filter by priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)")
+	issueSearchCmd.Flags().StringP("cycle", "y", "", "Filter by cycle ('current' or cycle number)")
 	issueSearchCmd.Flags().IntP("limit", "l", 50, "Maximum number of issues to fetch")
 	issueSearchCmd.Flags().BoolP("include-completed", "c", false, "Include completed and canceled issues")
 	issueSearchCmd.Flags().Bool("include-archived", false, "Include archived issues in results")

@@ -435,6 +435,11 @@ func (c *Client) GetIssues(ctx context.Context, filter map[string]interface{}, f
 							color
 						}
 					}
+					cycle {
+						id
+						number
+						name
+					}
 				}
 				pageInfo {
 					hasNextPage
@@ -507,6 +512,11 @@ func (c *Client) IssueSearch(ctx context.Context, term string, filter map[string
 							name
 							color
 						}
+					}
+					cycle {
+						id
+						number
+						name
 					}
 				}
 				pageInfo {
