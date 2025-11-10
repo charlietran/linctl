@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dorkitude/linctl/pkg/api"
-	"github.com/dorkitude/linctl/pkg/auth"
-	"github.com/dorkitude/linctl/pkg/output"
-	"github.com/dorkitude/linctl/pkg/utils"
+	"github.com/charlietran/linctl/pkg/api"
+	"github.com/charlietran/linctl/pkg/auth"
+	"github.com/charlietran/linctl/pkg/output"
+	"github.com/charlietran/linctl/pkg/utils"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -24,6 +24,8 @@ var issueCmd = &cobra.Command{
 Examples:
   linctl issue list --assignee me --state "In Progress"
   linctl issue ls -a me -s "In Progress"
+  linctl issue list --cycle current  # Show issues in current active cycle
+  linctl issue list --cycle 42  # Show issues in cycle 42
   linctl issue list --include-completed  # Show all issues including completed
   linctl issue list --newer-than 3_weeks_ago  # Show issues from last 3 weeks
   linctl issue search "login bug" --team ENG
@@ -35,7 +37,14 @@ var issueListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
 	Short:   "List issues",
-	Long:    `List Linear issues with optional filtering.`,
+	Long: `List Linear issues with optional filtering.
+
+Examples:
+  linctl issue list --assignee me
+  linctl issue list --state "In Progress" --team ENG
+  linctl issue list --cycle current  # Filter by current active cycle
+  linctl issue list --cycle 42  # Filter by specific cycle number
+  linctl issue list --priority 1 --cycle current  # Urgent issues in current cycle`,
 	Run: func(cmd *cobra.Command, args []string) {
 		plaintext := viper.GetBool("plaintext")
 		jsonOut := viper.GetBool("json")
@@ -111,6 +120,13 @@ func renderIssueCollection(issues *api.Issues, plaintext, jsonOut bool, emptyMes
 			if issue.Team != nil {
 				fmt.Printf("- **Team**: %s\n", issue.Team.Key)
 			}
+			if issue.Cycle != nil {
+				if issue.Cycle.Name != "" {
+					fmt.Printf("- **Cycle**: %s\n", issue.Cycle.Name)
+				} else if issue.Cycle.Number > 0 {
+					fmt.Printf("- **Cycle**: Cycle %d\n", issue.Cycle.Number)
+				}
+			}
 			fmt.Printf("- **Created**: %s\n", issue.CreatedAt.Format("2006-01-02"))
 			fmt.Printf("- **URL**: %s\n", issue.URL)
 			if issue.Description != "" {
@@ -122,7 +138,7 @@ func renderIssueCollection(issues *api.Issues, plaintext, jsonOut bool, emptyMes
 		return
 	}
 
-	headers := []string{"Title", "State", "Assignee", "Team", "Created", "URL"}
+	headers := []string{"Title", "State", "Assignee", "Team", "Cycle", "Created", "URL"}
 	rows := make([][]string, len(issues.Nodes))
 
 	for i, issue := range issues.Nodes {
@@ -134,6 +150,15 @@ func renderIssueCollection(issues *api.Issues, plaintext, jsonOut bool, emptyMes
 		team := ""
 		if issue.Team != nil {
 			team = issue.Team.Key
+		}
+
+		cycle := "-"
+		if issue.Cycle != nil {
+			if issue.Cycle.Name != "" {
+				cycle = issue.Cycle.Name
+			} else if issue.Cycle.Number > 0 {
+				cycle = fmt.Sprintf("Cycle %d", issue.Cycle.Number)
+			}
 		}
 
 		state := ""
@@ -168,6 +193,7 @@ func renderIssueCollection(issues *api.Issues, plaintext, jsonOut bool, emptyMes
 			state,
 			assignee,
 			team,
+			cycle,
 			issue.CreatedAt.Format("2006-01-02"),
 			issue.URL,
 		}
@@ -200,6 +226,8 @@ var issueSearchCmd = &cobra.Command{
 Examples:
   linctl issue search "payment outage"
   linctl issue search "auth token" --team ENG --include-completed
+  linctl issue search "login" --cycle current  # Search in current cycle
+  linctl issue search "bug" --cycle 42  # Search in specific cycle
   linctl issue search "customer:" --json`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -738,6 +766,17 @@ func buildIssueFilter(cmd *cobra.Command) map[string]interface{} {
 		filter["priority"] = map[string]interface{}{"eq": priority}
 	}
 
+	// Handle cycle filter
+	if cycle, _ := cmd.Flags().GetString("cycle"); cycle != "" {
+		if cycle == "current" {
+			// Filter for issues in the current active cycle
+			filter["cycle"] = map[string]interface{}{"isActive": map[string]interface{}{"eq": true}}
+		} else {
+			// Filter by specific cycle number
+			filter["cycle"] = map[string]interface{}{"number": map[string]interface{}{"eq": cycle}}
+		}
+	}
+
 	// Handle newer-than filter
 	newerThan, _ := cmd.Flags().GetString("newer-than")
 	createdAt, err := utils.ParseTimeExpression(newerThan)
@@ -830,7 +869,14 @@ var issueCreateCmd = &cobra.Command{
 	Use:     "create",
 	Aliases: []string{"new"},
 	Short:   "Create a new issue",
-	Long:    `Create a new issue in Linear.`,
+	Long: `Create a new issue in Linear.
+
+Examples:
+  linctl issue create --title "Bug fix" --team ENG
+  linctl issue create --title "Feature request" --team ENG --description "Add dark mode"
+  linctl issue create --title "Task" --team ENG --priority 1 --assign-me
+  linctl issue create --title "Task" --team ENG --project <PROJECT-ID>
+  linctl issue create --title "Bug" --team ENG --labels "bug,urgent"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		plaintext := viper.GetBool("plaintext")
 		jsonOut := viper.GetBool("json")
@@ -849,6 +895,8 @@ var issueCreateCmd = &cobra.Command{
 		teamKey, _ := cmd.Flags().GetString("team")
 		priority, _ := cmd.Flags().GetInt("priority")
 		assignToMe, _ := cmd.Flags().GetBool("assign-me")
+		projectID, _ := cmd.Flags().GetString("project")
+		labelIDs, _ := cmd.Flags().GetStringSlice("labels")
 
 		if title == "" {
 			output.Error("Title is required (--title)", plaintext, jsonOut)
@@ -890,6 +938,14 @@ var issueCreateCmd = &cobra.Command{
 			input["assigneeId"] = viewer.ID
 		}
 
+		if projectID != "" {
+			input["projectId"] = projectID
+		}
+
+		if len(labelIDs) > 0 {
+			input["labelIds"] = labelIDs
+		}
+
 		// Create issue
 		issue, err := client.CreateIssue(context.Background(), input)
 		if err != nil {
@@ -909,6 +965,16 @@ var issueCreateCmd = &cobra.Command{
 			if issue.Assignee != nil {
 				fmt.Printf("  Assigned to: %s\n", color.New(color.FgCyan).Sprint(issue.Assignee.Name))
 			}
+			if issue.Project != nil {
+				fmt.Printf("  Project: %s\n", color.New(color.FgCyan).Sprint(issue.Project.Name))
+			}
+			if issue.Labels != nil && len(issue.Labels.Nodes) > 0 {
+				labelNames := []string{}
+				for _, label := range issue.Labels.Nodes {
+					labelNames = append(labelNames, label.Name)
+				}
+				fmt.Printf("  Labels: %s\n", color.New(color.FgCyan).Sprint(strings.Join(labelNames, ", ")))
+			}
 		}
 	},
 }
@@ -925,6 +991,8 @@ Examples:
   linctl issue update LIN-123 --state "In Progress"
   linctl issue update LIN-123 --priority 1
   linctl issue update LIN-123 --due-date "2024-12-31"
+  linctl issue update LIN-123 --labels <ID1>,<ID2>
+  linctl issue update LIN-123 --labels ""  # Clear all labels
   linctl issue update LIN-123 --title "New title" --assignee me --priority 2`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -1047,6 +1115,12 @@ Examples:
 			} else {
 				input["dueDate"] = dueDate
 			}
+		}
+
+		// Handle labels update
+		if cmd.Flags().Changed("labels") {
+			labelIDs, _ := cmd.Flags().GetStringSlice("labels")
+			input["labelIds"] = labelIDs
 		}
 
 		// Check if any updates were specified
@@ -1220,6 +1294,7 @@ func init() {
 	issueListCmd.Flags().StringP("state", "s", "", "Filter by state name")
 	issueListCmd.Flags().StringP("team", "t", "", "Filter by team key")
 	issueListCmd.Flags().IntP("priority", "r", -1, "Filter by priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)")
+	issueListCmd.Flags().StringP("cycle", "y", "", "Filter by cycle ('current' or cycle number)")
 	issueListCmd.Flags().IntP("limit", "l", 50, "Maximum number of issues to fetch")
 	issueListCmd.Flags().BoolP("include-completed", "c", false, "Include completed and canceled issues")
 	issueListCmd.Flags().StringP("sort", "o", "linear", "Sort order: linear (default), created, updated")
@@ -1230,6 +1305,7 @@ func init() {
 	issueSearchCmd.Flags().StringP("state", "s", "", "Filter by state name")
 	issueSearchCmd.Flags().StringP("team", "t", "", "Filter by team key")
 	issueSearchCmd.Flags().IntP("priority", "r", -1, "Filter by priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)")
+	issueSearchCmd.Flags().StringP("cycle", "y", "", "Filter by cycle ('current' or cycle number)")
 	issueSearchCmd.Flags().IntP("limit", "l", 50, "Maximum number of issues to fetch")
 	issueSearchCmd.Flags().BoolP("include-completed", "c", false, "Include completed and canceled issues")
 	issueSearchCmd.Flags().Bool("include-archived", false, "Include archived issues in results")
@@ -1242,6 +1318,8 @@ func init() {
 	issueCreateCmd.Flags().StringP("team", "t", "", "Team key (required)")
 	issueCreateCmd.Flags().Int("priority", 3, "Priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)")
 	issueCreateCmd.Flags().BoolP("assign-me", "m", false, "Assign to yourself")
+	issueCreateCmd.Flags().String("project", "", "Project ID to attach issue to")
+	issueCreateCmd.Flags().StringSlice("labels", []string{}, "Label IDs to attach (comma-separated)")
 	_ = issueCreateCmd.MarkFlagRequired("title")
 	_ = issueCreateCmd.MarkFlagRequired("team")
 
@@ -1252,6 +1330,7 @@ func init() {
 	issueUpdateCmd.Flags().StringP("state", "s", "", "State name (e.g., 'Todo', 'In Progress', 'Done')")
 	issueUpdateCmd.Flags().Int("priority", -1, "Priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)")
 	issueUpdateCmd.Flags().String("due-date", "", "Due date (YYYY-MM-DD format, or empty to remove)")
+	issueUpdateCmd.Flags().StringSlice("labels", []string{}, "Label IDs to set (comma-separated, replaces existing labels)")
 
 	// Issue attach flags
 	issueAttachCmd.Flags().String("pr", "", "GitHub PR number or full URL")

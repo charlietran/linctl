@@ -1,7 +1,22 @@
 # 🚀 linctl - Linear CLI Tool
 
-
 A comprehensive command-line interface for Linear's API, built with agents in mind (but nice for humans too).
+
+## Fork Notice
+
+This is a fork of [dorkitude/linctl](https://github.com/dorkitude/linctl) with additional enhancements.
+
+### Enhancements in this Fork
+
+#### Cycle Display & Filtering
+
+- **Fixed**: Cycle field now displays correctly when listing issues (was showing NULL)
+- **Added**: Cycle column in issue list table and plaintext output
+- **Added**: `--cycle` flag for filtering issues:
+  - Use `--cycle current` to filter issues in the current active cycle
+  - Use `--cycle <number>` to filter by a specific cycle number
+  - Example: `linctl issue list --cycle current`
+  - Example: `linctl issue list --cycle 42`
 
 ## ✨ Features
 
@@ -34,16 +49,19 @@ A comprehensive command-line interface for Linear's API, built with agents in mi
 
 ## 🛠️ Installation
 
-### Homebrew (macOS/Linux)
+### Using go install
+
 ```bash
-brew tap dorkitude/linctl
-brew install linctl
-linctl docs      # Render the README.md
+# Install directly from this repo. Golang install required (brew install go)
+go install github.com/charlietran/linctl@latest
+$(go env GOPATH)/bin/linctl
+# You can just run "linctl" if something like "export PATH=$PATH:$(go env GOPATH)/bin" is in your shell config
 ```
 
 ### From Source
+
 ```bash
-git clone https://github.com/dorkitude/linctl.git
+git clone https://github.com/charlietran/linctl.git
 cd linctl
 make deps        # Install dependencies
 make build       # Build the binary
@@ -52,8 +70,9 @@ linctl docs      # Render the README.md
 ```
 
 ### For Development
+
 ```bash
-git clone https://github.com/dorkitude/linctl.git
+git clone https://github.com/charlietran/linctl.git
 cd linctl
 make deps        # Install dependencies
 go run main.go   # Run directly without building
@@ -67,21 +86,23 @@ linctl docs      # Render the README.md
 ## Important: Default Filters
 
 **By default, `issue list`, `issue search`, and `project list` commands only show items created in the last 6 months!**
- 
+
 This improves performance and prevents overwhelming data loads. To see older items:
- - Use `--newer-than 1_year_ago` for items from the last year
- - Use `--newer-than all_time` to see ALL items ever created
- - See the [Time-based Filtering](#-time-based-filtering) section for details
+
+- Use `--newer-than 1_year_ago` for items from the last year
+- Use `--newer-than all_time` to see ALL items ever created
+- See the [Time-based Filtering](#-time-based-filtering) section for details
 
 **By default, `issue list` and `issue search` also filter out canceled and completed items. To see all items, use the `--include-completed` flag.**
-- Need archived matches? Add `--include-archived` when using `issue search`.
 
+- Need archived matches? Add `--include-archived` when using `issue search`.
 
 ## 🚀 Quick Start
 
-> **IMPORTANT**  Agents like Claude Code, Cursor, and Gemini should use the `--json` flag on all read operations.
+> **IMPORTANT** Agents like Claude Code, Cursor, and Gemini should use the `--json` flag on all read operations.
 
 ### 1. Authentication
+
 ```bash
 # Interactive authentication
 linctl auth
@@ -97,6 +118,7 @@ linctl docs | less
 ```
 
 ### 2. Issue Management
+
 ```bash
 # List all issues
 linctl issue list
@@ -155,6 +177,7 @@ linctl issue attach LIN-123 --url https://example.com/design --title "Design Moc
 ```
 
 ### 3. Project Management
+
 ```bash
 # List all projects (shows IDs)
 linctl project list
@@ -173,6 +196,7 @@ linctl project get 65a77a62-ec5e-491e-b1d9-84aebee01b33
 ```
 
 ### 4. Team Management
+
 ```bash
 # List all teams
 linctl team list
@@ -185,6 +209,7 @@ linctl team members ENG
 ```
 
 ### 5. User Management
+
 ```bash
 # List all users
 linctl user list
@@ -200,6 +225,7 @@ linctl user me
 ```
 
 ### 6. Comments
+
 ```bash
 # List comments on an issue
 linctl comment list LIN-123
@@ -230,12 +256,14 @@ linctl issue attach LIN-123 \
 ## 📖 Command Reference
 
 ### Global Flags
+
 - `--plaintext, -p`: Plain text output (non-interactive)
 - `--json, -j`: JSON output for scripting
 - `--help, -h`: Show help
 - `--version, -v`: Show version
 
 ### Authentication Commands
+
 ```bash
 linctl auth               # Interactive authentication
 linctl auth login         # Same as above
@@ -245,6 +273,7 @@ linctl whoami            # Show current user
 ```
 
 ### Issue Commands
+
 ```bash
 # List issues with filters
 linctl issue list [flags]
@@ -308,6 +337,7 @@ linctl issue attach LIN-123 --url https://example.com --title "Spec" --subtitle 
 ```
 
 ### Team Commands
+
 ```bash
 # List all teams with issue counts
 linctl team list
@@ -332,6 +362,7 @@ linctl team members ENG     # Lists all Engineering team members
 ```
 
 ### Project Commands
+
 ```bash
 # List projects
 linctl project list [flags]
@@ -353,6 +384,7 @@ linctl project create [flags]
 ```
 
 ### User Commands
+
 ```bash
 # List all users in workspace
 linctl user list [flags]
@@ -379,6 +411,7 @@ linctl user me              # Shows your profile with admin status
 ```
 
 ### Comment Commands
+
 ```bash
 # List all comments for an issue
 linctl comment list <issue-id> [flags]
@@ -405,9 +438,11 @@ linctl comment create LIN-456 --body "@john please review this PR"
 ## 🎨 Output Formats
 
 ### Table Format (Default)
+
 ```bash
 linctl issue list
 ```
+
 ```
 ID       Title                State        Assignee    Team  Priority
 LIN-123  Fix authentication   In Progress  john@co.com ENG   High
@@ -415,9 +450,11 @@ LIN-124  Update documentation Done         jane@co.com DOC   Normal
 ```
 
 ### Plaintext Format
+
 ```bash
 linctl issue list --plaintext
 ```
+
 ```
 # Issues
 ## BUG: Fix login button alignment
@@ -445,9 +482,11 @@ Steps to reproduce:
 ```
 
 ### JSON Format
+
 ```bash
 linctl issue list --json
 ```
+
 ```json
 [
   {
@@ -483,6 +522,7 @@ Authentication credentials are stored securely in `~/.linctl-auth.json`.
 ## 🔒 Authentication
 
 ### Personal API Key (Recommended)
+
 1. Go to [Linear Settings > API](https://linear.app/settings/api)
 2. Create a new Personal API Key
 3. Run `linctl auth` and paste your key
@@ -510,10 +550,12 @@ linctl issue list --newer-than all_time
 ### Supported Time Formats
 
 1. **Relative time expressions**: `N_units_ago`
+
    - Units: `minutes`, `hours`, `days`, `weeks`, `months`, `years`
    - Examples: `30_minutes_ago`, `2_hours_ago`, `3_days_ago`, `1_week_ago`, `6_months_ago`
 
 2. **Special values**:
+
    - `all_time` - Shows all items without any date filter
    - ISO dates - `2025-07-01` or `2025-07-01T15:30:00Z`
 
@@ -521,18 +563,18 @@ linctl issue list --newer-than all_time
 
 ### Quick Reference
 
-| Time Expression | Description | Example Command |
-|----------------|-------------|-----------------|
-| *(no flag)* | Last 6 months (default) | `linctl issue list` |
-| `1_day_ago` | Last 24 hours | `linctl issue list --newer-than 1_day_ago` |
-| `1_week_ago` | Last 7 days | `linctl issue list --newer-than 1_week_ago` |
-| `2_weeks_ago` | Last 14 days | `linctl issue list --newer-than 2_weeks_ago` |
-| `1_month_ago` | Last month | `linctl issue list --newer-than 1_month_ago` |
-| `3_months_ago` | Last quarter | `linctl issue list --newer-than 3_months_ago` |
-| `6_months_ago` | Last 6 months | `linctl issue list --newer-than 6_months_ago` |
-| `1_year_ago` | Last year | `linctl issue list --newer-than 1_year_ago` |
-| `all_time` | No date filter | `linctl issue list --newer-than all_time` |
-| `2025-07-01` | Since specific date | `linctl issue list --newer-than 2025-07-01` |
+| Time Expression | Description             | Example Command                               |
+| --------------- | ----------------------- | --------------------------------------------- |
+| _(no flag)_     | Last 6 months (default) | `linctl issue list`                           |
+| `1_day_ago`     | Last 24 hours           | `linctl issue list --newer-than 1_day_ago`    |
+| `1_week_ago`    | Last 7 days             | `linctl issue list --newer-than 1_week_ago`   |
+| `2_weeks_ago`   | Last 14 days            | `linctl issue list --newer-than 2_weeks_ago`  |
+| `1_month_ago`   | Last month              | `linctl issue list --newer-than 1_month_ago`  |
+| `3_months_ago`  | Last quarter            | `linctl issue list --newer-than 3_months_ago` |
+| `6_months_ago`  | Last 6 months           | `linctl issue list --newer-than 6_months_ago` |
+| `1_year_ago`    | Last year               | `linctl issue list --newer-than 1_year_ago`   |
+| `all_time`      | No date filter          | `linctl issue list --newer-than all_time`     |
+| `2025-07-01`    | Since specific date     | `linctl issue list --newer-than 2025-07-01`   |
 
 ### Common Use Cases
 
@@ -565,6 +607,7 @@ All list commands support sorting with the `--sort` or `-o` flag:
 - **updated**: Sort by last update date (most recently updated first)
 
 ### Examples
+
 ```bash
 # Get recently updated issues
 linctl issue list --sort updated
@@ -599,19 +642,23 @@ linctl project list --newer-than all_time --sort created
 linctl includes comprehensive unit and integration tests to ensure reliability.
 
 ### Running Tests
+
 ```bash
 # Run all tests  (currently just a smoke test)
 make test
 ```
 
 ### Integration Testing
+
 Integration tests require a Linear API key. Create a `.env.test` file:
+
 ```bash
 cp .env.test.example .env.test
 # Edit .env.test and add your LINEAR_TEST_API_KEY
 ```
 
 Or set it as an environment variable:
+
 ```bash
 export LINEAR_TEST_API_KEY="your-test-api-key"
 make test-integration
@@ -620,6 +667,7 @@ make test-integration
 ⚠️ **Note**: Integration tests are read-only and safe to run with production API keys.
 
 ### Test Structure
+
 - `tests/unit/` - Unit tests with mocked API responses
 - `tests/integration/` - End-to-end tests with real Linear API
 - `tests/testutils/` - Shared test utilities and helpers
@@ -666,6 +714,7 @@ linctl comment list LIN-123 --json > issue-comments.json
 ## 📡 Real-World Examples
 
 ### Team Workflows
+
 ```bash
 # Find which team a user belongs to
 for team in $(linctl team list --json | jq -r '.[].key'); do
@@ -681,6 +730,7 @@ linctl team list --json | jq '.[] | select(.issueCount > 50) | {key, name, issue
 ```
 
 ### User Management
+
 ```bash
 # Find inactive users
 linctl user list --json | jq '.[] | select(.active == false) | {name, email}'
@@ -693,6 +743,7 @@ linctl user list --json | jq '.[] | select(.admin == true and .isMe == false) | 
 ```
 
 ### Issue Comments
+
 ```bash
 # Add a comment mentioning the issue is blocked
 linctl comment create LIN-123 --body "Blocked by LIN-456. Waiting for API changes."
@@ -728,6 +779,7 @@ linctl issue attach LIN-456 \
 ```
 
 ### Project Tracking
+
 ```bash
 # List projects nearing completion (>80% progress)
 linctl project list --json | jq '.[] | select(.progress > 0.8) | {name, progress}'
@@ -740,6 +792,7 @@ linctl project get PROJECT-ID --json | jq '{name, startDate, targetDate, progres
 ```
 
 ### Daily Standup Helper
+
 ```bash
 #!/bin/bash
 # Show my recent activity
@@ -756,6 +809,7 @@ done
 ## 🐛 Troubleshooting
 
 ### Authentication Issues
+
 ```bash
 # Check authentication status
 linctl auth status
@@ -766,15 +820,19 @@ linctl auth
 ```
 
 ### API Rate Limits
+
 Linear has the following rate limits:
+
 - Personal API Keys: 5,000 requests/hour
 
 ### Common Errors
+
 - `Not authenticated`: Run `linctl auth` first
 - `Team not found`: Use team key (e.g., "ENG") not display name
 - `Invalid priority`: Use numbers 0-4 (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)
 
 ### Time Filtering Issues
+
 - **Missing old issues?** Remember that list commands default to showing only the last 6 months
   - Solution: Use `--newer-than all_time` to see all issues
 - **Invalid time expression?** Check the format: `N_units_ago` (e.g., `3_weeks_ago`)
@@ -790,7 +848,7 @@ Linear has the following rate limits:
 4. Add tests
 5. Submit a pull request
 
-See CONTRIBUTING.md for a detailed release checklist and the Homebrew tap auto-bump workflow.
+See CONTRIBUTING.md for a detailed release checklist.
 
 ## 📄 License
 
@@ -799,8 +857,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🔗 Links
 
 - [Linear API Documentation](https://developers.linear.app/)
-- [GitHub Repository](https://github.com/dorkitude/linctl)
-- [Issue Tracker](https://github.com/dorkitude/linctl/issues)
+- [GitHub Repository](https://github.com/charlietran/linctl)
+- [Issue Tracker](https://github.com/charlietran/linctl/issues)
 
 ---
 
