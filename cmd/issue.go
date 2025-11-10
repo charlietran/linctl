@@ -1146,6 +1146,139 @@ Examples:
 	},
 }
 
+var issueAttachCmd = &cobra.Command{
+	Use:   "attach [issue-id]",
+	Short: "Attach a resource to an issue",
+	Long: `Attach external resources like GitHub PRs, URLs, or images to a Linear issue.
+
+Examples:
+  linctl issue attach LIN-123 --pr 456
+  linctl issue attach LIN-123 --pr https://github.com/owner/repo/pull/456
+  linctl issue attach LIN-123 --url https://example.com --title "Design Mockup"
+  linctl issue attach LIN-123 --url https://example.com --title "Spec" --subtitle "Updated 2024"`,
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		plaintext := viper.GetBool("plaintext")
+		jsonOut := viper.GetBool("json")
+
+		authHeader, err := auth.GetAuthHeader()
+		if err != nil {
+			output.Error("Not authenticated. Run 'linctl auth' first.", plaintext, jsonOut)
+			os.Exit(1)
+		}
+
+		client := api.NewClient(authHeader)
+
+		// Get issue to verify it exists and get its ID
+		issue, err := client.GetIssue(context.Background(), args[0])
+		if err != nil {
+			output.Error(fmt.Sprintf("Failed to fetch issue: %v", err), plaintext, jsonOut)
+			os.Exit(1)
+		}
+
+		// Build attachment input
+		input := map[string]interface{}{
+			"issueId": issue.ID,
+		}
+
+		// Handle PR flag
+		prFlag, _ := cmd.Flags().GetString("pr")
+		urlFlag, _ := cmd.Flags().GetString("url")
+		titleFlag, _ := cmd.Flags().GetString("title")
+		subtitleFlag, _ := cmd.Flags().GetString("subtitle")
+		iconURLFlag, _ := cmd.Flags().GetString("icon-url")
+
+		if prFlag != "" && urlFlag != "" {
+			output.Error("Cannot specify both --pr and --url", plaintext, jsonOut)
+			os.Exit(1)
+		}
+
+		if prFlag == "" && urlFlag == "" {
+			output.Error("Must specify either --pr or --url", plaintext, jsonOut)
+			os.Exit(1)
+		}
+
+		// Handle GitHub PR attachment
+		if prFlag != "" {
+			prURL, prTitle, prSubtitle := buildGitHubPRAttachment(prFlag)
+			input["url"] = prURL
+			if titleFlag != "" {
+				input["title"] = titleFlag
+			} else {
+				input["title"] = prTitle
+			}
+			if subtitleFlag != "" {
+				input["subtitle"] = subtitleFlag
+			} else if prSubtitle != "" {
+				input["subtitle"] = prSubtitle
+			}
+			// GitHub icon
+			if iconURLFlag == "" {
+				input["iconUrl"] = "https://github.com/favicon.ico"
+			}
+		}
+
+		// Handle generic URL attachment
+		if urlFlag != "" {
+			input["url"] = urlFlag
+			if titleFlag == "" {
+				output.Error("--title is required when using --url", plaintext, jsonOut)
+				os.Exit(1)
+			}
+			input["title"] = titleFlag
+			if subtitleFlag != "" {
+				input["subtitle"] = subtitleFlag
+			}
+		}
+
+		if iconURLFlag != "" {
+			input["iconUrl"] = iconURLFlag
+		}
+
+		// Create the attachment
+		attachment, err := client.CreateAttachment(context.Background(), input)
+		if err != nil {
+			output.Error(fmt.Sprintf("Failed to create attachment: %v", err), plaintext, jsonOut)
+			os.Exit(1)
+		}
+
+		if jsonOut {
+			output.JSON(attachment)
+		} else if plaintext {
+			fmt.Printf("Attached %s to %s\n", attachment.Title, issue.Identifier)
+			fmt.Printf("URL: %s\n", attachment.URL)
+		} else {
+			fmt.Printf("%s Attached to %s: %s\n",
+				color.New(color.FgGreen).Sprint("✓"),
+				color.New(color.FgCyan, color.Bold).Sprint(issue.Identifier),
+				attachment.Title)
+			fmt.Printf("  %s\n", color.New(color.FgBlue, color.Underline).Sprint(attachment.URL))
+		}
+	},
+}
+
+// buildGitHubPRAttachment constructs PR URL, title, and subtitle from various input formats
+func buildGitHubPRAttachment(prInput string) (url, title, subtitle string) {
+	// Check if it's already a full URL
+	if strings.HasPrefix(prInput, "http://") || strings.HasPrefix(prInput, "https://") {
+		// Parse GitHub PR URL (expected format: https://github.com/owner/repo/pull/123)
+		parts := strings.Split(prInput, "/")
+		if len(parts) >= 7 && parts[2] == "github.com" && parts[5] == "pull" {
+			owner := parts[3]
+			repo := parts[4]
+			prNumber := parts[6]
+			return prInput, fmt.Sprintf("PR #%s", prNumber), fmt.Sprintf("%s/%s", owner, repo)
+		}
+		return prInput, "GitHub PR", ""
+	}
+
+	// Just a PR number - construct a basic URL
+	// Future enhancement: detect repo from git remote or gh CLI
+	return fmt.Sprintf("https://github.com/pr/%s", prInput),
+		fmt.Sprintf("PR #%s", prInput),
+		""
+}
+
 func init() {
 	rootCmd.AddCommand(issueCmd)
 	issueCmd.AddCommand(issueListCmd)
@@ -1154,6 +1287,7 @@ func init() {
 	issueCmd.AddCommand(issueAssignCmd)
 	issueCmd.AddCommand(issueCreateCmd)
 	issueCmd.AddCommand(issueUpdateCmd)
+	issueCmd.AddCommand(issueAttachCmd)
 
 	// Issue list flags
 	issueListCmd.Flags().StringP("assignee", "a", "", "Filter by assignee (email or 'me')")
@@ -1197,4 +1331,11 @@ func init() {
 	issueUpdateCmd.Flags().Int("priority", -1, "Priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)")
 	issueUpdateCmd.Flags().String("due-date", "", "Due date (YYYY-MM-DD format, or empty to remove)")
 	issueUpdateCmd.Flags().StringSlice("labels", []string{}, "Label IDs to set (comma-separated, replaces existing labels)")
+
+	// Issue attach flags
+	issueAttachCmd.Flags().String("pr", "", "GitHub PR number or full URL")
+	issueAttachCmd.Flags().String("url", "", "URL to attach")
+	issueAttachCmd.Flags().String("title", "", "Attachment title")
+	issueAttachCmd.Flags().String("subtitle", "", "Attachment subtitle")
+	issueAttachCmd.Flags().String("icon-url", "", "Icon URL for the attachment")
 }

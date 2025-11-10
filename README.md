@@ -26,6 +26,7 @@ This is a fork of [dorkitude/linctl](https://github.com/dorkitude/linctl) with a
   - Git branch integration showing linked branches
   - Cycle (sprint) and project associations
   - Attachments and recent comments preview
+  - Link GitHub PRs and external resources via `linctl issue attach`
   - Due dates, snoozed status, and completion tracking
   - Full-text search via `linctl issue search`
 - 👥 **Team Management**: View teams, get team details, and list team members
@@ -37,7 +38,7 @@ This is a fork of [dorkitude/linctl](https://github.com/dorkitude/linctl) with a
   - Timeline tracking (created, updated, completed dates)
 - 👤 **User Management**: List all users, view user details, and current user info
 - 💬 **Comments**: List and create comments on issues with time-aware formatting
-- 📎 **Attachments**: View file uploads and attachments on issues
+- 📎 **Attachments**: View and create attachments on issues, including GitHub PRs and external URLs
 - 🔗 **Webhooks**: Configure and manage webhooks
 - 🎨 **Multiple Output Formats**: Table, plaintext, and JSON output
 - ⚡ **Performance**: Fast and lightweight CLI tool
@@ -166,6 +167,13 @@ linctl issue update LIN-123 --due-date ""  # Remove due date
 
 # Update multiple fields at once
 linctl issue update LIN-123 --title "Critical Bug" --assignee me --priority 1
+
+# Link a GitHub PR to an issue
+linctl issue attach LIN-123 --pr https://github.com/owner/repo/pull/456
+linctl issue attach LIN-123 --pr 456  # If in a GitHub repo directory
+
+# Attach any URL to an issue
+linctl issue attach LIN-123 --url https://example.com/design --title "Design Mockup"
 ```
 
 ### 3. Project Management
@@ -224,6 +232,25 @@ linctl comment list LIN-123
 
 # Add a comment to an issue
 linctl comment create LIN-123 --body "Fixed the authentication bug"
+```
+
+### 7. Attachments
+```bash
+# Link a GitHub PR to an issue
+linctl issue attach LIN-123 --pr https://github.com/owner/repo/pull/456
+
+# Use PR number (if running in a GitHub repo directory)
+linctl issue attach LIN-123 --pr 456
+
+# Attach any external URL
+linctl issue attach LIN-123 --url https://figma.com/design/abc --title "UI Mockup"
+
+# Add more metadata
+linctl issue attach LIN-123 \
+  --url https://docs.google.com/document/d/abc \
+  --title "Technical Spec" \
+  --subtitle "Version 2.0" \
+  --icon-url https://ssl.gstatic.com/docs/doclist/images/mediatype/icon_1_document_x16.png
 ```
 
 ## 📖 Command Reference
@@ -292,6 +319,21 @@ linctl issue edit <issue-id> [flags]    # Alias
 
 # Archive issue (coming soon)
 linctl issue archive <issue-id>
+
+# Attach resources to issues
+linctl issue attach <issue-id> [flags]
+# Flags:
+  --pr string          GitHub PR number or full URL
+  --url string         URL to attach
+  --title string       Attachment title (required with --url)
+  --subtitle string    Attachment subtitle (optional)
+  --icon-url string    Icon URL for the attachment (optional)
+
+# Examples:
+linctl issue attach LIN-123 --pr https://github.com/owner/repo/pull/456
+linctl issue attach LIN-123 --pr 456  # In a git repo directory
+linctl issue attach LIN-123 --url https://figma.com/file/abc --title "Design Mockup"
+linctl issue attach LIN-123 --url https://example.com --title "Spec" --subtitle "v2.0"
 ```
 
 ### Team Commands
@@ -714,6 +756,26 @@ for issue in LIN-123 LIN-124 LIN-125; do
   count=$(linctl comment list $issue --json | jq '. | length')
   echo "$issue: $count comments"
 done
+```
+
+### Attachments & GitHub Integration
+```bash
+# Link a PR to the issue you're working on
+linctl issue attach LIN-123 --pr https://github.com/myorg/myrepo/pull/456
+
+# Bulk attach PRs from a GitHub search or gh CLI
+gh pr list --json number,url | jq -r '.[] | .url' | while read pr_url; do
+  linctl issue attach LIN-123 --pr "$pr_url"
+done
+
+# Attach design files
+linctl issue attach LIN-123 --url https://figma.com/file/abc --title "Design V2"
+
+# Attach documentation
+linctl issue attach LIN-456 \
+  --url https://docs.google.com/document/d/xyz \
+  --title "Architecture Spec" \
+  --subtitle "Updated 2024-01-15"
 ```
 
 ### Project Tracking

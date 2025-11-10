@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -1526,4 +1527,50 @@ func (c *Client) CreateComment(ctx context.Context, issueID string, body string)
 	}
 
 	return &response.CommentCreate.Comment, nil
+}
+
+// CreateAttachment creates a new attachment for an issue
+func (c *Client) CreateAttachment(ctx context.Context, input map[string]interface{}) (*Attachment, error) {
+	query := `
+		mutation CreateAttachment($input: AttachmentCreateInput!) {
+			attachmentCreate(input: $input) {
+				success
+				attachment {
+					id
+					title
+					subtitle
+					url
+					metadata
+					createdAt
+					creator {
+						id
+						name
+						email
+					}
+				}
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"input": input,
+	}
+
+	var response struct {
+		AttachmentCreate struct {
+			Success    bool       `json:"success"`
+			Attachment Attachment `json:"attachment"`
+		} `json:"attachmentCreate"`
+	}
+
+	err := c.Execute(ctx, query, variables, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	if !response.AttachmentCreate.Success {
+		return nil, fmt.Errorf("failed to create attachment")
+	}
+
+	return &response.AttachmentCreate.Attachment, nil
 }
